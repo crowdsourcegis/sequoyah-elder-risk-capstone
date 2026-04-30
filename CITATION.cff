@@ -2,7 +2,11 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
 type: software
 title: "sequoyah-elder-risk-dashboard"
-abstract: "A geospatial decision-support workflow for rural elder safeguarding triage in Sequoyah County, Oklahoma. Integrates ACS-calibrated synthetic population generation, composite risk scoring, ArcGIS Pro Network Analyst accessibility analysis, Getis-Ord Gi* hotspot detection, and a human-in-the-loop ArcGIS Online Operations Dashboard."
+abstract: "A geospatial decision-support workflow for rural elder safeguarding triage.
+  Integrates ACS-calibrated synthetic population generation, composite risk scoring,
+  network accessibility analysis, Getis-Ord Gi* hotspot detection, and a human-in-the-loop
+  ArcGIS Online Operations Dashboard. Demonstrated for Sequoyah County, Oklahoma as a
+  replicable prototype for comparable rural counties."
 authors:
   - family-names: Lynch
     given-names: Luke
@@ -11,6 +15,7 @@ version: "1.0.0"
 date-released: "2026-04-30"
 license: MIT
 repository-code: "https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard"
+url: "https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard"
 keywords:
   - rural elder safeguarding
   - GIS
