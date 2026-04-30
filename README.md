@@ -1,5 +1,4 @@
 # sequoyah-elder-risk-dashboard
-
 A reproducible GIS capstone workflow for rural elder safeguarding triage in Sequoyah County, Oklahoma.
 
 This repo contains all scripts, documentation, validation outputs, ACS data inputs, and dashboard
