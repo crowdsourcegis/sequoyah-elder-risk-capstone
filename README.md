@@ -1,4 +1,4 @@
-sequoyah-elder-risk-dashboard
+# sequoyah-elder-risk-dashboard
 
 A reproducible GIS capstone workflow for rural elder safeguarding triage in Sequoyah County, Oklahoma.
 
