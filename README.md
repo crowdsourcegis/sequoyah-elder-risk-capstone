@@ -7,8 +7,6 @@ configuration notes. It does not include the final paper, presentation slides, t
 project file (.aprx), the full geodatabase, any hosted ArcGIS Online layer, or any real
 person-level records.
 
----
-
 ## What This Project Does
 
 Rural oversight agencies face a structural disadvantage in elder safeguarding. Distance compresses
@@ -25,8 +23,6 @@ into a single human-in-the-loop triage interface:
 The result is a 7,810-record synthetic elder layer for Sequoyah County with full demographic fidelity
 to Census data, no real PII, and a complete audit trail from raw ACS input to dashboard display.
 
----
-
 ## Repository Structure
 
 **scripts/** - Python and ArcPy pipeline, runs in order from census query to drive-time analysis
@@ -41,16 +37,12 @@ to Census data, no real PII, and a complete audit trail from raw ACS input to da
 
 **arcade/** - Popup, label, and symbology expressions
 
----
-
 ## ACS Inputs
 
 The `data/acs_cleaned/` folder contains six cleaned aggregate CSVs acquired from the U.S. Census
 Bureau API (2024 ACS 5-Year Estimates, ZCTA level). These are public aggregate inputs, not
 individual records, and are included so the generator logic can be reviewed without requiring a
 live API request. No individual-level or protected data is present anywhere in this repository.
-
----
 
 ## How to Reproduce
 
@@ -65,8 +57,6 @@ live API request. No individual-level or protected data is present anywhere in t
 The generator uses **RNG seed 42**. Any researcher with these scripts and the ACS CSVs will produce
 the identical 7,810-record layer.
 
----
-
 ## Governance
 
 This workflow is designed for **human-in-the-loop triage only**. No automated action is taken on
@@ -74,15 +64,11 @@ any record. All risk thresholds are set by human reviewers. Every flag carries a
 to the specific rule or ACS-calibrated threshold that produced it, consistent with established
 design requirements for algorithmic support in high-stakes public-sector decisions.
 
----
-
 ## What Is Not in This Repository
 
 The final paper, .aprx project file, full geodatabase, and hosted ArcGIS Online layers are not
 included. The synthetic elder layer is fully reproducible from the scripts and ACS CSVs in this
 repo. No real person-level records exist anywhere in this project.
-
----
 
 ## Citation
 
@@ -91,8 +77,6 @@ Use the metadata in `CITATION.cff` or the GitHub "Cite this repository" button.
 Lynch, L. (2026). *sequoyah-elder-risk-dashboard* (v1.0.0).
 https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard
 https://orcid.org/0009-0005-6505-1639
-
----
 
 ## License
 
