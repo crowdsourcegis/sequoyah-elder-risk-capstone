@@ -1,1 +1,173 @@
+"""
+COMPOSITE RISK CALCULATOR
+Project: Geospatial Triage for Elder Safeguarding in Rural Communities
+Legacy ArcPy Scoring Workflow
+Author: Luke A. Lynch
+Date: 2026-03-05
+
+This script calculates the original composite risk fields directly on the
+elder address feature class. It adds the required risk fields if they do not
+already exist, parses contact dates, and writes the composite score and risk
+level in place.
+
+The point of this script is a direct legacy scoring pass on a single feature
+class. It does not create a separate scored copy, run Gi statistics, or build
+the richer ACS-aware scoring workflow used in later scripts.
+This script is not part of the active pipeline. See scripts/pipeline/ for the canonical workflow.
+"""
+
+import arcpy
+from datetime import datetime
+
+# PARAMETERS START
+FC = r"C:\Users\GIS\Documents\ArcGIS\Projects\CAPSTONE-870.gdb\elder_address"
+
+SCORE_FIELDS = [
+    ("RS_Age", "SHORT"),
+    ("RS_Contact", "SHORT"),
+    ("RS_Flags", "SHORT"),
+    ("RS_Service", "SHORT"),
+    ("RS_Broadband", "SHORT"),
+    ("RS_Vuln", "SHORT"),
+    ("RS_History", "SHORT"),
+    ("RS_Poverty", "SHORT"),
+    ("CompositeScore", "SHORT"),
+    ("RiskLevel", "TEXT", 10),
+]
+# PARAMETERS END
+
+EXISTING_FIELDS = {f.name for f in arcpy.ListFields(FC)}
+
+for fld in SCORE_FIELDS:
+    if fld[0] not in EXISTING_FIELDS:
+        if len(fld) == 2:
+            arcpy.management.AddField(FC, fld[0], fld[1])
+        else:
+            arcpy.management.AddField(FC, fld[0], fld[1], field_length=fld[2])
+
+def is_yes(value):
+    return str(value).strip().lower() == "yes"
+
+def parse_date(value):
+    if value in (None, "", " "):
+        return None
+    try:
+        return datetime.strptime(str(value).strip(), "%m/%d/%Y")
+    except:
+        return None
+
+CURSOR_FIELDS = [
+    "Age",
+    "LastContactDate",
+    "AsOfDate",
+    "APSReferral",
+    "FallHistory",
+    "CognitiveFlag",
+    "InactiveBenefits",
+    "ServiceUse",
+    "HasInternet",
+    "HasCell",
+    "HasDisability",
+    "LivesAlone",
+    "RefusesMedicalHelp",
+    "PreviousInvestigationCount",
+    "InPoverty",
+    "RS_Age",
+    "RS_Contact",
+    "RS_Flags",
+    "RS_Service",
+    "RS_Broadband",
+    "RS_Vuln",
+    "RS_History",
+    "RS_Poverty",
+    "CompositeScore",
+    "RiskLevel",
+]
+
+with arcpy.da.UpdateCursor(FC, CURSOR_FIELDS) as cursor:
+    for row in cursor:
+        age = row[0]
+        last_contact = parse_date(row[1])
+        as_of_date = parse_date(row[2])
+
+        aps = row[3]
+        fall = row[4]
+        cognitive = row[5]
+
+        inactive_benefits = row[6]
+        service_use = str(row[7]).strip() if row[7] is not None else ""
+
+        has_internet = row[8]
+        has_cell = row[9]
+
+        has_disability = row[10]
+        lives_alone = row[11]
+        refuses_medical_help = row[12]
+
+        previous_investigations = row[13]
+        in_poverty = row[14]
+
+        rs_age = 1 if age is not None and age >= 80 else 0
+
+        rs_contact = 0
+        if last_contact and as_of_date:
+            days_since_contact = (as_of_date - last_contact).days
+            rs_contact = 1 if days_since_contact > 180 else 0
+
+        risk_flag_count = sum([
+            is_yes(aps),
+            is_yes(fall),
+            is_yes(cognitive)
+        ])
+        rs_flags = 1 if risk_flag_count >= 2 else 0
+
+        rs_service = 1 if is_yes(inactive_benefits) and service_use.lower() == "none" else 0
+
+        rs_broadband = 1 if (not is_yes(has_internet)) and (not is_yes(has_cell)) else 0
+
+        vulnerability_count = sum([
+            is_yes(has_disability),
+            is_yes(lives_alone),
+            is_yes(refuses_medical_help)
+        ])
+        rs_vuln = 1 if vulnerability_count >= 2 else 0
+
+        rs_history = 1 if previous_investigations is not None and previous_investigations >= 1 else 0
+
+        rs_poverty = 1 if is_yes(in_poverty) else 0
+
+        composite_score = (
+            rs_age +
+            rs_contact +
+            rs_flags +
+            rs_service +
+            rs_broadband +
+            rs_vuln +
+            rs_history +
+            rs_poverty
+        )
+
+        if composite_score <= 2:
+            risk_level = "Low"
+        elif composite_score <= 4:
+            risk_level = "Moderate"
+        elif composite_score <= 6:
+            risk_level = "High"
+        else:
+            risk_level = "Critical"
+
+        row[15] = rs_age
+        row[16] = rs_contact
+        row[17] = rs_flags
+        row[18] = rs_service
+        row[19] = rs_broadband
+        row[20] = rs_vuln
+        row[21] = rs_history
+        row[22] = rs_poverty
+        row[23] = composite_score
+        row[24] = risk_level
+
+        cursor.updateRow(row)
+
+print("Composite risk fields calculated in place.")
 
