@@ -1,0 +1,23 @@
+{
+  "generator_version": "V10",
+  "rng_seed": 42,
+  "as_of_date": "03/10/2026",
+  "output_csv": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\mock_address_generator_v10.csv",
+  "record_count": 7810,
+  "household_count": 6060,
+  "acs_inputs": {
+    "B01001": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\B01001_sequoyah.csv",
+    "B12002": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\B12002_sequoyah.csv",
+    "B28005": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\B28005_sequoyah.csv",
+    "B18101": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\B18101_sequoyah.csv",
+    "B17020": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\B17020_sequoyah.csv",
+    "B11010": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\output\\B11010_sequoyah.csv"
+  },
+  "address_points_source": "G:\\03_Projects\\PSU_Stuff\\CAPSTONE\\Data\\census_project\\docs\\residential_points",
+  "notes": [
+    "B01001 controls population totals by ZIP, sex, and age band.",
+    "B11010 shapes LivesAlone only among eligible non-married elders.",
+    "MockAddress is synthetic and does not expose source address text.",
+    "Repeated coordinates are audited by household and address point."
+  ]
+}
