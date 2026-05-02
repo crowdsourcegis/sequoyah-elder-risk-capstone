@@ -66,6 +66,11 @@ def copy_roads():
     )
     log(f"Roads copied into transportation dataset: {ROADS_FC}")
 
+def reset_existing_network():
+    if arcpy.Exists(NETWORK_PATH):
+        log("Existing network dataset detected; deleting it before roads refresh.")
+        delete_if_exists(NETWORK_PATH)
+
 def create_network():
     if arcpy.Exists(NETWORK_PATH):
         log(f"Network dataset already exists: {NETWORK_PATH}")
@@ -109,6 +114,7 @@ def main():
     try:
         check_extension()
         validate_inputs()
+        reset_existing_network()
         copy_roads()
         create_network()
         build_network()
