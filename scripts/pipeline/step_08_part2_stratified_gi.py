@@ -20,11 +20,13 @@ import os
 
 # PARAMETERS START
 arcpy.env.overwriteOutput = True
+arcpy.env.addOutputsToMap = False
 
-gdb = r"C:\Users\GIS\Documents\ArcGIS\Projects\CAPSTONE-870.gdb"
-arcpy.env.workspace = gdb
+GDB = r"C:\Users\GIS\Documents\ArcGIS\Projects\CAPSTONE-870.gdb"
+arcpy.env.workspace = GDB
 
-INPUT_FC = os.path.join(gdb, "scored_elder_records")
+INPUT_FC = os.path.join(GDB, "scored_elder_records")
+ADD_OUTPUTS_TO_MAP = True
 
 RUN_SPECS = [
     {
@@ -99,6 +101,39 @@ def require_field(fc, field_name):
     if field_name not in fields:
         raise ValueError(f"Missing required field: {field_name}")
 
+def remove_layer_if_present(map_obj, layer_name):
+    for layer in map_obj.listLayers():
+        try:
+            current_name = layer.name
+        except AttributeError:
+            continue
+        except Exception:
+            continue
+
+        if current_name == layer_name:
+            map_obj.removeLayer(layer)
+
+def add_outputs_to_map(output_paths):
+    if not ADD_OUTPUTS_TO_MAP or not output_paths:
+        return
+
+    try:
+        aprx = arcpy.mp.ArcGISProject("CURRENT")
+        active_map = aprx.activeMap
+    except Exception:
+        log("No active ArcGIS Pro map found; skipping map add.")
+        return
+
+    if active_map is None:
+        log("No active ArcGIS Pro map found; skipping map add.")
+        return
+
+    for output_path in output_paths:
+        remove_layer_if_present(active_map, os.path.basename(output_path))
+        active_map.addDataFromPath(output_path)
+
+    log(f"Added {len(output_paths)} Gi output layers to the active map.")
+
 def build_subset_layer(run):
     layer_name = f"lyr_{run['name']}"
     if arcpy.Exists(layer_name):
@@ -119,9 +154,9 @@ def run_hotspot(run):
 
     if count < 30:
         log(f"Skipping {run['name']}: only {count} records, below the minimum run threshold.")
-        return
+        return None
 
-    output_fc = os.path.join(gdb, f"gi_{run['name']}")
+    output_fc = os.path.join(GDB, f"gi_{run['name']}")
 
     if arcpy.Exists(output_fc):
         arcpy.management.Delete(output_fc)
@@ -139,15 +174,21 @@ def run_hotspot(run):
     )
 
     log(f"Output created: {output_fc}")
+    return output_fc
 
 def main():
     require_field(INPUT_FC, "SpatialRegime")
     require_field(INPUT_FC, "CompositeScore")
     require_field(INPUT_FC, "ACSScore")
 
-    for run in RUN_SPECS:
-        run_hotspot(run)
+    created_outputs = []
 
+    for run in RUN_SPECS:
+        output_fc = run_hotspot(run)
+        if output_fc:
+            created_outputs.append(output_fc)
+
+    add_outputs_to_map(created_outputs)
     log("Settlement-stratified Gi sensitivity runs complete.")
 
 if __name__ == "__main__":
