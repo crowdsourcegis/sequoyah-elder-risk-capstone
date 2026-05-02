@@ -57,6 +57,9 @@ The result is a synthetic elder workflow for Sequoyah County with a visible audi
 
 `scripts/pipeline/reason_code_dictionary.py` is the rule library used by Step 10. It belongs to the active pipeline, but it is a dependency module rather than its own run step.
 
+Important routing note:
+Steps 5 and 6 explicitly locate address points and facilities onto the road network before solving. The current pipeline scripts use larger search tolerances, `MATCH_TO_CLOSEST`, and `SNAP` against the `Roads` network source so near-road points are more likely to receive valid drive times without manual cleanup.
+
 ## Legacy Scripts
 
 Scripts in `scripts/legacy/` stay in the repo on purpose. They show earlier or exploratory versions of logic that were later consolidated into the active pipeline. I kept them for audit, comparison, and method transparency, not as parallel official workflows.
