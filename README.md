@@ -24,7 +24,7 @@ The result is a synthetic elder workflow for Sequoyah County with a visible audi
 
 `scripts/legacy/` - Earlier, superseded, or exploratory scripts retained for reproducibility audit
 
-`docs/` - Methodology, data dictionary, and limitations
+`docs/` - Methodology and limitations
 
 `data/acs_cleaned/` - Six ACS 5-Year Estimate CSVs for Sequoyah County
 
