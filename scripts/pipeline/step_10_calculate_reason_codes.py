@@ -148,6 +148,7 @@ def parse_date(value):
 
     return None
 
+# Apply note-pattern and structured-field rules, then write reason-code outputs.
 def match_any(text, patterns):
     for pattern in patterns:
         if re.search(pattern, text, flags=re.IGNORECASE):
