@@ -17,6 +17,7 @@ not build the road network, calculate risk scores, or assign reason codes.
 import arcpy
 import os
 
+# Define the input layers, network settings, travel mode, and threshold.
 # PARAMETERS START
 arcpy.env.overwriteOutput = True
 arcpy.env.addOutputsToMap = False
@@ -32,18 +33,28 @@ TRAVEL_MODE = "Driving Time"
 
 THRESHOLD_MINUTES = 20
 ASSUMED_MPH = 55
-FACILITY_SEARCH_TOLERANCE = "10000 Meters"
-INCIDENT_SEARCH_TOLERANCE = "20000 Meters"
+FACILITY_SEARCH_TOLERANCE = "2000 Meters"
+INCIDENT_SEARCH_TOLERANCE = "500 Meters"
 SNAP_OFFSET = "25 Meters"
 
 ACCESS_FC = os.path.join(GDB, "elder_law_access")
 FLAGGED_FC = os.path.join(GDB, "elder_law_over20")
 ROUTES_FC = os.path.join(GDB, "law_cf_routes")
 TEMP_ROUTES_FC = r"in_memory\law_cf_routes_tmp"
-SAVE_ROUTE_LINES = False
+SAVE_ROUTE_LINES = True
 ADD_POINT_OUTPUTS_TO_MAP = True
 
+# Network Analyst creates temporary solver layers and datasets during processing.
 CF_LAYER_NAME = "LawEnforcementClosestFacility"
+NA_SOLVER_DATASET_PREFIX = "ClosestFacilitySolver"
+NA_TEMP_LAYER_PREFIXES = (
+    "Facilities",
+    "Incidents",
+    "CFRoutes",
+    "Barriers",
+    "PolylineBarriers",
+    "PolygonBarriers"
+)
 
 DRIVE_TIME_FIELD = "Law_Minutes"
 FLAG_FIELD = "Law_Over20"
@@ -70,28 +81,76 @@ def remove_layer_if_present(map_obj, layer_name):
         if current_name == layer_name:
             map_obj.removeLayer(layer)
 
+def get_active_map():
+    try:
+        aprx = arcpy.mp.ArcGISProject("CURRENT")
+        return aprx.activeMap
+    except Exception:
+        return None
+
+# Remove temporary Network Analyst layers so only final outputs remain in the map.
+def remove_network_analysis_layers_from_map():
+    active_map = get_active_map()
+    if active_map is None:
+        return
+
+    removed = 0
+    for layer in active_map.listLayers():
+        try:
+            current_name = layer.name
+        except Exception:
+            continue
+
+        is_cf_layer = current_name == CF_LAYER_NAME
+        is_na_sublayer = any(
+            current_name.startswith(prefix)
+            for prefix in NA_TEMP_LAYER_PREFIXES
+        )
+
+        if is_cf_layer or is_na_sublayer:
+            active_map.removeLayer(layer)
+            removed += 1
+
+    if removed:
+        log(f"Removed temporary Network Analyst map layers: {removed}")
+
+# Remove temporary Closest Facility solver datasets left in the geodatabase.
+def remove_network_analysis_solver_datasets():
+    old_workspace = arcpy.env.workspace
+    arcpy.env.workspace = GDB
+
+    try:
+        solver_datasets = arcpy.ListDatasets(
+            f"{NA_SOLVER_DATASET_PREFIX}*",
+            "Feature"
+        ) or []
+
+        for dataset in solver_datasets:
+            dataset_path = os.path.join(GDB, dataset)
+            try:
+                arcpy.management.Delete(dataset_path)
+                log(f"Deleted temporary Network Analyst solver dataset: {dataset}")
+            except Exception as ex:
+                log(f"Could not delete temporary solver dataset {dataset}: {ex}")
+    finally:
+        arcpy.env.workspace = old_workspace
+
+# Add only the flagged law-access layer to the ArcGIS Pro map.
 def add_final_point_outputs_to_map():
     if not ADD_POINT_OUTPUTS_TO_MAP:
         return
 
-    try:
-        aprx = arcpy.mp.ArcGISProject("CURRENT")
-        active_map = aprx.activeMap
-    except Exception:
-        log("No active ArcGIS Pro map found; skipping map add.")
-        return
-
+    active_map = get_active_map()
     if active_map is None:
         log("No active ArcGIS Pro map found; skipping map add.")
         return
 
-    remove_layer_if_present(active_map, CF_LAYER_NAME)
+    remove_network_analysis_layers_from_map()
     remove_layer_if_present(active_map, os.path.basename(ACCESS_FC))
     remove_layer_if_present(active_map, os.path.basename(FLAGGED_FC))
 
-    active_map.addDataFromPath(ACCESS_FC)
     active_map.addDataFromPath(FLAGGED_FC)
-    log("Added final point outputs to the active map.")
+    log("Added flagged law-access output to the active map.")
 
 def ensure_field(fc, name, field_type, length=None):
     existing = {f.name for f in arcpy.ListFields(fc)}
@@ -134,6 +193,7 @@ def build_facility_name_map():
             name_map[int(facility_id)] = str(facility_name) if facility_name is not None else None
     return name_map
 
+# Check that the elder records, law enforcement layer, and road network are available.
 def validate_inputs():
     for path, label in [
         (ELDER_FC, "elder_fc"),
@@ -143,6 +203,24 @@ def validate_inputs():
         if not arcpy.Exists(path):
             raise ValueError(f"Missing {label}: {path}")
         log(f"Verified {label}: {path}")
+
+def log_network_dataset_sources():
+    log(f"Network dataset in use: {NETWORK_DATASET}")
+    try:
+        nd_desc = arcpy.Describe(NETWORK_DATASET)
+        sources = getattr(nd_desc, "sources", None)
+
+        if not sources:
+            log("Network source listing unavailable from Describe().")
+            return
+
+        log("Network dataset sources:")
+        for source in sources:
+            source_name = getattr(source, "name", "<unknown>")
+            source_type = getattr(source, "sourceType", "<unknown>")
+            log(f" - {source_name} ({source_type})")
+    except Exception as ex:
+        log(f"Could not inspect network dataset sources: {ex}")
 
 def choose_route_cost_field(fc):
     candidates = [
@@ -172,7 +250,7 @@ def convert_route_cost_to_minutes(field_name, value):
     return float(value)
 
 def choose_route_incident_field(fc):
-    candidates = ["IncidentID", "IncidentOID", "IncidentName", "Name"]
+    candidates = ["IncidentID", "IncidentName", "IncidentOID", "Name"]
     fields = set(get_field_names(fc))
     for c in candidates:
         if c in fields:
@@ -182,6 +260,42 @@ def choose_route_incident_field(fc):
         + ", ".join(sorted(fields))
     )
 
+def choose_incident_status_field(fc):
+    candidates = ["Status", "SolveStatus", "LocationStatus"]
+    fields = set(get_field_names(fc))
+    for candidate in candidates:
+        if candidate in fields:
+            return candidate
+    return None
+
+def summarize_incident_location_quality(incidents_layer):
+    fields = set(get_field_names(incidents_layer))
+    if "SourceID" not in fields and "SourceOID" not in fields:
+        log(
+            "Diagnostics: incident sublayer has no SourceID/SourceOID fields; "
+            "cannot compute located/unlocated counts."
+        )
+        return
+
+    probe_fields = []
+    if "SourceID" in fields:
+        probe_fields.append("SourceID")
+    if "SourceOID" in fields:
+        probe_fields.append("SourceOID")
+
+    located = 0
+    unlocated = 0
+    with arcpy.da.SearchCursor(incidents_layer, probe_fields) as cursor:
+        for row in cursor:
+            values = list(row)
+            is_located = all(v not in (None, -1) for v in values)
+            if is_located:
+                located += 1
+            else:
+                unlocated += 1
+
+    log(f"Diagnostics: incidents located on network={located}, unlocated={unlocated}")
+
 def parse_incident_id(value):
     if value is None:
         return None
@@ -189,23 +303,57 @@ def parse_incident_id(value):
         return int(value)
     except Exception:
         text = str(value).strip()
-        if " - " in text:
-            text = text.split(" - ")[0].strip()
+        for separator in (" - ",):
+            if separator in text:
+                text = text.split(separator)[0].strip()
+                break
+
+        if text.lower().startswith("location "):
+            parts = text.split()
+            if parts and parts[-1].isdigit():
+                return int(parts[-1])
+
         try:
             return int(text)
         except Exception:
             return None
 
 def build_access_fc():
+    # Copy elder records to a working analysis layer.
     delete_if_exists(ACCESS_FC)
     arcpy.management.CopyFeatures(ELDER_FC, ACCESS_FC)
     log(f"Copied elder layer to {ACCESS_FC}")
 
+    # Add fields for law drive time, threshold status, and nearest agency.
     ensure_field(ACCESS_FC, DRIVE_TIME_FIELD, "DOUBLE")
     ensure_field(ACCESS_FC, FLAG_FIELD, "SHORT")
     ensure_field(ACCESS_FC, NEAREST_NAME_FIELD, "TEXT", length=100)
 
+def summarize_solve_diagnostics(incidents_layer, routes_fc):
+    incident_count = int(arcpy.management.GetCount(incidents_layer)[0])
+    route_count = int(arcpy.management.GetCount(routes_fc)[0])
+    log(f"Diagnostics: incidents loaded={incident_count}, routes solved={route_count}")
+    summarize_incident_location_quality(incidents_layer)
+
+    status_field = choose_incident_status_field(incidents_layer)
+    if status_field:
+        status_counts = {}
+        with arcpy.da.SearchCursor(incidents_layer, [status_field]) as cursor:
+            for row in cursor:
+                status = row[0]
+                status_counts[status] = status_counts.get(status, 0) + 1
+
+        log(f"Incident status counts by {status_field}:")
+        for status in sorted(status_counts):
+            log(f" - {status}: {status_counts[status]}")
+    else:
+        log("Diagnostics: no incident status field found on incidents sublayer.")
+        log("Incident sublayer fields:")
+        for field_name in get_field_names(incidents_layer):
+            log(f" - {field_name}")
+
 def solve_closest_facility():
+    # Create the Closest Facility analysis layer.
     result = arcpy.na.MakeClosestFacilityAnalysisLayer(
         network_data_source=NETWORK_DATASET,
         layer_name=CF_LAYER_NAME,
@@ -215,17 +363,23 @@ def solve_closest_facility():
     )
 
     cf_layer = result.getOutput(0)
+    remove_network_analysis_layers_from_map()
     sublayers = arcpy.na.GetNAClassNames(cf_layer)
 
     facilities_sub = sublayers["Facilities"]
     incidents_sub = sublayers["Incidents"]
 
+    # Load law-enforcement facilities and elder locations, then solve drive time.
+    facilities_field_mappings = arcpy.na.NAClassFieldMappings(cf_layer, facilities_sub)
+    if "ID" in facilities_field_mappings:
+        facilities_field_mappings["ID"].mappedFieldName = arcpy.Describe(FACILITY_FC).OIDFieldName
+
     arcpy.na.AddLocations(
         in_network_analysis_layer=cf_layer,
         sub_layer=facilities_sub,
         in_table=FACILITY_FC,
+        field_mappings=facilities_field_mappings,
         search_tolerance=FACILITY_SEARCH_TOLERANCE,
-        search_criteria="Roads SHAPE",
         match_type="MATCH_TO_CLOSEST",
         append="CLEAR",
         snap_to_position_along_network="SNAP",
@@ -237,6 +391,8 @@ def solve_closest_facility():
     field_mappings = arcpy.na.NAClassFieldMappings(cf_layer, incidents_sub)
     if "Name" in field_mappings:
         field_mappings["Name"].mappedFieldName = ELDER_ID_FIELD
+    if "ID" in field_mappings:
+        field_mappings["ID"].mappedFieldName = ELDER_ID_FIELD
 
     arcpy.na.AddLocations(
         in_network_analysis_layer=cf_layer,
@@ -244,7 +400,6 @@ def solve_closest_facility():
         in_table=ACCESS_FC,
         field_mappings=field_mappings,
         search_tolerance=INCIDENT_SEARCH_TOLERANCE,
-        search_criteria="Roads SHAPE",
         match_type="MATCH_TO_CLOSEST",
         append="CLEAR",
         snap_to_position_along_network="SNAP",
@@ -262,23 +417,32 @@ def solve_closest_facility():
 
     routes_layer = arcpy.na.GetNASublayer(cf_layer, "CFRoutes")
 
+    # Copy solved route results for writing drive times back to elder records.
     delete_if_exists(TEMP_ROUTES_FC)
     arcpy.management.CopyFeatures(routes_layer, TEMP_ROUTES_FC)
     log("Prepared route results in memory.")
+    incidents_layer = arcpy.na.GetNASublayer(cf_layer, "Incidents")
+    summarize_solve_diagnostics(incidents_layer, TEMP_ROUTES_FC)
 
+    # Optional: save route line geometry if routes need to be mapped or reviewed.
     if SAVE_ROUTE_LINES:
         delete_if_exists(ROUTES_FC)
         arcpy.management.CopyFeatures(routes_layer, ROUTES_FC)
         log(f"Saved routes to {ROUTES_FC}")
 
     arcpy.management.Delete(cf_layer)
+    remove_network_analysis_layers_from_map()
+    remove_network_analysis_solver_datasets()
 
 def print_route_fields():
+    # List route fields created by ArcGIS Network Analyst.
     log("Route fields:")
     for f in arcpy.ListFields(TEMP_ROUTES_FC):
         log(f" - {f.name}")
 
 def write_results_back():
+    # Match solved route records back to the correct elder records.
+    # Find the route ID, travel-time, and law-enforcement-name fields.
     route_incident_field = choose_route_incident_field(TEMP_ROUTES_FC)
     cost_field = choose_route_cost_field(TEMP_ROUTES_FC)
     facility_name_map = build_facility_name_map()
@@ -310,6 +474,7 @@ def write_results_back():
             minutes = convert_route_cost_to_minutes(cost_field, route_cost)
             route_map[incident_id] = (minutes, facility_name)
 
+    # Write law drive time, over-threshold flag, and nearest agency name.
     updated = 0
     matched = 0
     flagged = 0
@@ -340,6 +505,7 @@ def write_results_back():
     log(f"Flagged > {THRESHOLD_MINUTES} minutes: {flagged}")
 
 def export_flagged_subset():
+    # Export elders over the law-enforcement drive-time threshold.
     delete_if_exists(FLAGGED_FC)
     arcpy.analysis.Select(ACCESS_FC, FLAGGED_FC, f"{FLAG_FIELD} = 1")
 
@@ -349,9 +515,13 @@ def export_flagged_subset():
     log(f"Created flagged subset: {FLAGGED_FC}")
     log(f"Total records: {total}")
     log(f"Flagged records: {flagged}")
+
 def main():
     log("Starting law enforcement drive-time analysis...")
+    remove_network_analysis_layers_from_map()
+    remove_network_analysis_solver_datasets()
     validate_inputs()
+    log_network_dataset_sources()
     build_access_fc()
     solve_closest_facility()
     print_route_fields()
