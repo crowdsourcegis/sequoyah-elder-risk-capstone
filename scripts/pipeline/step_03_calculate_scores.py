@@ -19,6 +19,7 @@ import arcpy
 import os
 from datetime import datetime
 
+# Define scoring inputs, target feature class, and output score fields.
 # PARAMETERS START
 arcpy.env.overwriteOutput = True
 
@@ -137,6 +138,7 @@ def risk_level(score):
     return "Critical"
 
 
+# Add score fields and calculate risk components for each elder record.
 def add_score_fields():
     for name, ftype, length in SCORE_FIELDS:
         ensure_field(TARGET_FC, name, ftype, length)
