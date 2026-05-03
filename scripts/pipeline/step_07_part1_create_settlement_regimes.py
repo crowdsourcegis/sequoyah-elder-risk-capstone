@@ -17,6 +17,7 @@ or rebuild the full scored feature class.
 import arcpy
 import os
 
+# Define feature-class inputs and settlement regime mapping rules.
 # PARAMETERS START
 arcpy.env.overwriteOutput = True
 
@@ -54,6 +55,7 @@ def coerce_int(value):
         return 0
     return int(value)
 
+# Populate settlement regime labels and ACS-only score values.
 def main():
     ensure_field(FC, "SpatialRegime", "TEXT", 32)
     ensure_field(FC, "ACSScore", "SHORT")
