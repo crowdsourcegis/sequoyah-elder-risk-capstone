@@ -18,6 +18,7 @@ derived outputs. It only builds the network asset the later workflow depends on.
 import arcpy
 import os
 
+# Define geodatabase paths and network dataset naming controls.
 # PARAMETERS START
 arcpy.env.overwriteOutput = True
 
@@ -30,6 +31,11 @@ ROADS_FC = os.path.join(FEATURE_DATASET, ROADS_NAME)
 
 NETWORK_NAME = "RoadNetwork_ND"
 NETWORK_PATH = os.path.join(FEATURE_DATASET, NETWORK_NAME)
+
+PREPROCESS_INTERSECTIONS = True
+INTEGRATE_TOLERANCE = "2 Meters"
+TMP_ROADS_INTEGRATED = os.path.join(GDB, "roads_mvp_integrated_tmp")
+TMP_ROADS_SPLIT = os.path.join(GDB, "roads_mvp_split_tmp")
 # PARAMETERS END
 
 def log(msg):
@@ -57,14 +63,40 @@ def validate_inputs():
         raise RuntimeError(f"Transportation feature dataset not found: {FEATURE_DATASET}")
     log("Input geodatabase, roads source, and feature dataset verified.")
 
+# Refresh transportation roads, create the network dataset, and build it.
 def copy_roads():
     delete_if_exists(ROADS_FC)
+    source_for_copy = SOURCE_ROADS
+
+    if PREPROCESS_INTERSECTIONS:
+        source_for_copy = preprocess_roads_for_connectivity()
+
     arcpy.conversion.FeatureClassToFeatureClass(
-        in_features=SOURCE_ROADS,
+        in_features=source_for_copy,
         out_path=FEATURE_DATASET,
         out_name=ROADS_NAME
     )
     log(f"Roads copied into transportation dataset: {ROADS_FC}")
+
+def preprocess_roads_for_connectivity():
+    delete_if_exists(TMP_ROADS_INTEGRATED)
+    delete_if_exists(TMP_ROADS_SPLIT)
+
+    arcpy.management.CopyFeatures(SOURCE_ROADS, TMP_ROADS_INTEGRATED)
+    log(f"Copied source roads for preprocessing: {TMP_ROADS_INTEGRATED}")
+
+    arcpy.management.Integrate([[TMP_ROADS_INTEGRATED, 1]], INTEGRATE_TOLERANCE)
+    log(f"Integrated roads using tolerance {INTEGRATE_TOLERANCE}")
+
+    arcpy.management.FeatureToLine(
+        in_features=TMP_ROADS_INTEGRATED,
+        out_feature_class=TMP_ROADS_SPLIT,
+        cluster_tolerance=INTEGRATE_TOLERANCE,
+        attributes="ATTRIBUTES"
+    )
+    log("Split roads at intersections using FeatureToLine.")
+
+    return TMP_ROADS_SPLIT
 
 def reset_existing_network():
     if arcpy.Exists(NETWORK_PATH):
@@ -122,6 +154,8 @@ def main():
         list_network_datasets()
         log("Road network workflow complete.")
     finally:
+        delete_if_exists(TMP_ROADS_INTEGRATED)
+        delete_if_exists(TMP_ROADS_SPLIT)
         try:
             arcpy.CheckInExtension("network")
             log("Network Analyst extension checked in.")
