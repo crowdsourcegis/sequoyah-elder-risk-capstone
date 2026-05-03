@@ -18,6 +18,7 @@ import os
 import csv
 from collections import Counter
 
+# Define workspace and summary CSV destination.
 # PARAMETERS START
 gdb = r"C:\Users\GIS\Documents\ArcGIS\Projects\CAPSTONE-870.gdb"
 arcpy.env.workspace = gdb
@@ -105,6 +106,7 @@ def summarize_feature_class(fc):
         "min_p": min_p
     }
 
+# Aggregate all Gi outputs into a single comparison table.
 def main():
     rows = []
 
