@@ -18,6 +18,7 @@ classes into a final comparison table.
 import arcpy
 import os
 
+# Define input layer, run scenarios, and Gi output behavior.
 # PARAMETERS START
 arcpy.env.overwriteOutput = True
 arcpy.env.addOutputsToMap = False
@@ -134,6 +135,7 @@ def add_outputs_to_map(output_paths):
 
     log(f"Added {len(output_paths)} Gi output layers to the active map.")
 
+# Build filtered subsets and run each Gi scenario with explicit distance bands.
 def build_subset_layer(run):
     layer_name = f"lyr_{run['name']}"
     if arcpy.Exists(layer_name):
