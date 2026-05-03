@@ -31,6 +31,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+# Define generator controls, ACS inputs, and output schemas.
 # PARAMETERS START
 GENERATOR_VERSION = "V10"
 RNG_SEED = 42
@@ -115,6 +116,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(funcName)s: %(me
 rng = np.random.default_rng(RNG_SEED)
 
 
+# Utility helpers for safe casting, ZIP normalization, and rate checks.
 def safe_int(value: Any) -> int:
     if pd.isna(value):
         return 0
@@ -172,6 +174,7 @@ def rows_by_zip(df: pd.DataFrame) -> dict[str, pd.Series]:
     return {row["Zip"]: row for _, row in df.iterrows()}
 
 
+# Read and validate the clean ACS inputs required by the generator.
 def load_acs_inputs() -> dict[str, dict[str, pd.Series]]:
     frames = {
         "B01001": read_clean_csv(B01001CSV, "B01001"),
@@ -218,6 +221,7 @@ def find_id_column(gdf: gpd.GeoDataFrame) -> str | None:
     return None
 
 
+# Load geocoded residential points and constrain them to ACS ZIP coverage.
 def load_address_points(required_zips: set[str]) -> gpd.GeoDataFrame:
     shp = resolve_shapefile(ADDRESS_POINTS_SHP)
     gdf = gpd.read_file(shp)
@@ -279,6 +283,7 @@ class AddressPointAllocator:
         return min(self.cursor.get(zipcode, 0), self.available_count(zipcode))
 
 
+# Date, age, and probability helpers used during profile synthesis.
 def format_date(d: date | datetime) -> str:
     return d.strftime("%m/%d/%Y")
 
@@ -324,6 +329,7 @@ def marital_rates(row: pd.Series, sex: str, zipcode: str) -> list[float]:
     return [validate_rate(safe_float(row[col]), "B12002", col, zipcode) for col in mapping]
 
 
+# Create one synthetic elder profile using ACS-guided probabilities.
 def make_person(zipcode: str, city: str, sex: str, band_idx: int, marital: str, acs: dict[str, dict[str, pd.Series]]) -> dict[str, Any]:
     age = age_for_band(band_idx)
     b28005 = acs["B28005"][zipcode]
@@ -428,6 +434,7 @@ def build_people_for_zip(zipcode: str, acs: dict[str, dict[str, pd.Series]]) -> 
     return people
 
 
+# Apply living-alone assignment only within eligible non-married populations.
 def assign_lives_alone(people: list[dict[str, Any]], acs: dict[str, dict[str, pd.Series]]) -> None:
     for person in people:
         if person["MaritalStatus"] == "Married":
@@ -513,6 +520,7 @@ def split_multi_elder_groups(candidates: list[dict[str, Any]]) -> tuple[list[lis
     return groups, shuffled[used:]
 
 
+# Build household-level output rows with shared address-point placement rules.
 def build_rows(acs: dict[str, dict[str, pd.Series]], allocator: AddressPointAllocator) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     id_iter = id_generator()
     household_iter = household_id_generator()
@@ -700,6 +708,7 @@ def write_metadata(outdir: Path, df: pd.DataFrame, acs_paths: dict[str, Path]) -
         json.dump(metadata, f, indent=2)
 
 
+# Write validation and audit artifacts used for methodology review.
 def write_validation_outputs(df: pd.DataFrame, generation_log: list[dict[str, Any]], allocator: AddressPointAllocator, acs: dict[str, dict[str, pd.Series]], outdir: Path) -> None:
     write_generation_summary(df, generation_log, allocator, outdir)
     write_zip_calibration_check(df, acs, outdir)
@@ -716,6 +725,7 @@ def write_validation_outputs(df: pd.DataFrame, generation_log: list[dict[str, An
     })
 
 
+# Emit ArcGIS schema.ini so field types are preserved on import.
 def generate_schema_ini(csv_filename: str) -> str:
     return f"""[{csv_filename}]
 Format=CSVDelimited
@@ -768,6 +778,7 @@ Col42=AddressIsSynthetic Text Width 3
 """
 
 
+# Run the full generation workflow: load inputs, synthesize records, and export.
 def main() -> None:
     logging.info("Starting mock address generator %s", GENERATOR_VERSION)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
