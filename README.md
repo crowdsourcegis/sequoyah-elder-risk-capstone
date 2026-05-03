@@ -104,8 +104,12 @@ The final paper, `.aprx` project file, full geodatabase, hosted ArcGIS Online la
 
 Use the metadata in `CITATION.cff` or the GitHub "Cite this repository" button.
 
-Lynch, L. (2026). *sequoyah-elder-risk-dashboard* (v1.0.0).
+Lynch, L. A. (2026). Sequoyah elder risk dashboard (Version 1.0.0) [Computer software]. GitHub. 
 https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard
+
+Lynch, L. (2026). *sequoyah-elder-risk-dashboard* (v1.0.0).
+[https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard](https://github.com/crowdsourcegis/sequoyah-elder-risk-capstone/tree/main)
+
 https://orcid.org/0009-0005-6505-1639
 
 ## License
