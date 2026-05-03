@@ -10,7 +10,7 @@ This project treats rural elder-risk triage as a spatial access problem, not jus
 
 The workflow combines five pieces:
 
-- Synthetic elder population generation calibrated to real 2024 ACS 5-Year Estimate data
+- Synthetic elder population generation calibrated to real 2024 ACS 5-Year Estimates data
 - Composite risk scoring across eight equal-weight domains using ArcPy
 - Network accessibility analysis measuring drive time to hospitals and law enforcement
 - Getis-Ord Gi* hotspot detection identifying statistically significant clusters of elder risk
@@ -24,9 +24,9 @@ The result is a synthetic elder workflow for Sequoyah County with a visible audi
 
 `scripts/legacy/` - Earlier, superseded, or exploratory scripts retained for reproducibility audit
 
-`docs/` - Methodology and limitations
+`docs/` - Methodology, data dictionary, and limitations
 
-`data/acs_cleaned/` - Six ACS 5-Year Estimate CSVs for Sequoyah County
+`data/acs_cleaned/` - Six ACS 5-Year Estimates CSVs for Sequoyah County
 
 `validation/` - Generator calibration outputs and audit trail
 
@@ -58,7 +58,7 @@ The result is a synthetic elder workflow for Sequoyah County with a visible audi
 `scripts/pipeline/reason_code_dictionary.py` is the rule library used by Step 10. It belongs to the active pipeline, but it is a dependency module rather than its own run step.
 
 Important routing note:
-Steps 5 and 6 explicitly locate address points and facilities onto the road network before solving. The current pipeline scripts use larger search tolerances, `MATCH_TO_CLOSEST`, and `SNAP` against the `Roads` network source so near-road points are more likely to receive valid drive times without manual cleanup.
+Steps 5 and 6 explicitly locate elder points and facilities onto the road network before solving. The current pipeline scripts use larger search tolerances, `MATCH_TO_CLOSEST`, and `SNAP` against the `Roads` network source so near-road points are more likely to receive valid drive times without manual cleanup.
 
 ## Legacy Scripts
 
@@ -105,12 +105,12 @@ The final paper, `.aprx` project file, full geodatabase, hosted ArcGIS Online la
 Use the metadata in `CITATION.cff` or the GitHub "Cite this repository" button.
 
 Lynch, L. A. (2026). Sequoyah elder risk dashboard (Version 1.0.0) [Computer software]. GitHub. 
-https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard
+https://github.com/crowdsourcegis/sequoyah-elder-risk-capstone
 
-Lynch, L. (2026). *sequoyah-elder-risk-dashboard* (v1.0.0).
-[https://github.com/crowdsourcegis/sequoyah-elder-risk-dashboard](https://github.com/crowdsourcegis/sequoyah-elder-risk-capstone/tree/main)
+## Author
 
-https://orcid.org/0009-0005-6505-1639
+Luke A. Lynch  
+ORCID: https://orcid.org/0009-0005-6505-1639
 
 ## License
 
